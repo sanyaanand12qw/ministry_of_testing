@@ -53,7 +53,12 @@ pipeline {
                 //
                 // '--with-deps' is deliberately not used: it shells out to the
                 // Linux package manager and is not supported on a macOS agent.
-                sh 'mvn -B -ntp exec:java -Dexec.mainClass=com.microsoft.playwright.CLI -Dexec.args="install ${BROWSER}"'
+                // params.BROWSER, not $BROWSER: Groovy interpolation, resolved before
+                // the shell sees it. A single-quoted string would leave $BROWSER for
+                // the shell, and on the very first parameterised build Jenkins has not
+                // injected the parameters as env vars yet -- the arg would silently
+                // become a bare "install", which downloads every engine.
+                sh "mvn -B -ntp exec:java -Dexec.mainClass=com.microsoft.playwright.CLI -Dexec.args='install ${params.BROWSER}'"
             }
         }
 
