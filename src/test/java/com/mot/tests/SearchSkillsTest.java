@@ -46,7 +46,10 @@ public class SearchSkillsTest extends BaseTest {
                 "A topic URL should contain '/t/' but was " + topic.currentUrl());
         soft.assertEquals(topic.heading(), firstResultTitle,
                 "The opened topic heading should match the result that was clicked");
-        soft.assertTrue(topic.postCount() > 0, "The topic should show at least one post");
+        // TEMPORARY — deliberate failure to prove the CI evidence path. Revert after.
+        soft.assertTrue(topic.postCount() > 9999,
+                "DELIBERATE FAILURE (proving the Jenkins evidence path): the topic has "
+                        + topic.postCount() + " post(s), which is not > 9999");
         soft.assertAll();
 
         Log.pass("The first search result opened the expected topic: " + topic.heading());
