@@ -1,0 +1,43 @@
+target/
+!.mvn/wrapper/maven-wrapper.jar
+!**/src/main/**/target/
+!**/src/test/**/target/
+
+### Test output ###
+# Everything the run produces already sits under target/, which is ignored above:
+#   target/extent-report/  index.html + screenshots/ videos/ traces/
+#   target/logs/           automation.log
+#   target/video-raw/      Playwright's scratch folder for recordings
+#   target/surefire-reports/
+# Listed here only so it is obvious that no evidence is ever committed.
+
+### IntelliJ IDEA ###
+.idea/
+*.iws
+*.iml
+*.ipr
+
+### Eclipse ###
+.apt_generated
+.classpath
+.factorypath
+.project
+.settings
+.springBeans
+.sts4-cache
+
+### NetBeans ###
+/nbproject/private/
+/nbbuild/
+/dist/
+/nbdist/
+/.nb-gradle/
+build/
+!**/src/main/**/build/
+!**/src/test/**/build/
+
+### VS Code ###
+.vscode/
+
+### Mac OS ###
+.DS_Store

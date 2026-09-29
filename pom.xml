@@ -1,0 +1,121 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+  xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+
+  <groupId>com.mot</groupId>
+  <artifactId>MinistryOfTestingAutomation</artifactId>
+  <version>1.0-SNAPSHOT</version>
+  <packaging>jar</packaging>
+
+  <name>MinistryOfTestingAutomation</name>
+  <description>Playwright + Java + TestNG UI automation framework for club.ministryoftesting.com</description>
+
+  <properties>
+    <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+    <java.version>21</java.version>
+
+    <!-- dependency versions -->
+    <playwright.version>1.52.0</playwright.version>
+    <testng.version>7.11.0</testng.version>
+    <extentreports.version>5.1.2</extentreports.version>
+    <slf4j.version>2.0.17</slf4j.version>
+    <log4j.version>2.26.0</log4j.version>
+
+    <!-- plugin versions -->
+    <compiler.plugin.version>3.14.0</compiler.plugin.version>
+    <surefire.plugin.version>3.5.6</surefire.plugin.version>
+    <exec.plugin.version>3.5.1</exec.plugin.version>
+
+    <!-- runtime defaults; override from CLI e.g. mvn test -Dheadless=false -->
+    <suiteFile>testng.xml</suiteFile>
+    <browser>chromium</browser>
+    <headless>true</headless>
+  </properties>
+
+  <dependencies>
+    <dependency>
+      <groupId>com.microsoft.playwright</groupId>
+      <artifactId>playwright</artifactId>
+      <version>${playwright.version}</version>
+    </dependency>
+
+    <dependency>
+      <groupId>org.testng</groupId>
+      <artifactId>testng</artifactId>
+      <version>${testng.version}</version>
+    </dependency>
+
+    <dependency>
+      <groupId>com.aventstack</groupId>
+      <artifactId>extentreports</artifactId>
+      <version>${extentreports.version}</version>
+    </dependency>
+
+    <dependency>
+      <groupId>org.slf4j</groupId>
+      <artifactId>slf4j-api</artifactId>
+      <version>${slf4j.version}</version>
+    </dependency>
+
+    <!-- SLF4J -> Log4j2 binding + implementation -->
+    <dependency>
+      <groupId>org.apache.logging.log4j</groupId>
+      <artifactId>log4j-slf4j2-impl</artifactId>
+      <version>${log4j.version}</version>
+    </dependency>
+    <dependency>
+      <groupId>org.apache.logging.log4j</groupId>
+      <artifactId>log4j-core</artifactId>
+      <version>${log4j.version}</version>
+    </dependency>
+  </dependencies>
+
+  <build>
+    <plugins>
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-compiler-plugin</artifactId>
+        <version>${compiler.plugin.version}</version>
+        <configuration>
+          <release>${java.version}</release>
+        </configuration>
+      </plugin>
+
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-surefire-plugin</artifactId>
+        <version>${surefire.plugin.version}</version>
+        <configuration>
+          <suiteXmlFiles>
+            <suiteXmlFile>${suiteFile}</suiteXmlFile>
+          </suiteXmlFiles>
+          <!-- forwards the -D overrides into the test JVM, where ConfigReader reads them -->
+          <systemPropertyVariables>
+            <browser>${browser}</browser>
+            <headless>${headless}</headless>
+          </systemPropertyVariables>
+        </configuration>
+      </plugin>
+
+      <!--
+        Downloads the Playwright browser binaries. One-off on a new machine or CI agent:
+          mvn exec:java
+        Override the target with -Dexec.args="install firefox"
+      -->
+      <plugin>
+        <groupId>org.codehaus.mojo</groupId>
+        <artifactId>exec-maven-plugin</artifactId>
+        <version>${exec.plugin.version}</version>
+        <configuration>
+          <mainClass>com.microsoft.playwright.CLI</mainClass>
+          <includePluginDependencies>true</includePluginDependencies>
+          <arguments>
+            <argument>install</argument>
+            <argument>chromium</argument>
+          </arguments>
+        </configuration>
+      </plugin>
+    </plugins>
+  </build>
+</project>
