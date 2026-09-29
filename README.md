@@ -167,13 +167,49 @@ tunnel, or a hosted controller).
 with no window server session, so a headed browser has no display to draw into.
 Run headed locally with `mvn clean test -Dheadless=false` instead.
 
-If the video does not play inside the report tab, Jenkins' content security policy is
-blocking it. Either download the artifact instead, or relax the CSP from
-**Manage Jenkins → Script Console**:
+### Making the report actually render
 
-```groovy
-System.setProperty("hudson.model.DirectoryBrowserSupport.CSP", "sandbox allow-scripts; default-src 'self' 'unsafe-inline' data:;")
+Jenkins serves any archived HTML with a deliberately strict header:
+
 ```
+Content-Security-Policy: sandbox allow-same-origin; default-src 'none'; img-src 'self'; style-src 'self';
+```
+
+`default-src 'none'` blocks all JavaScript, and `style-src 'self'` blocks any CSS
+that is not served by Jenkins itself. An Extent report hitting that looks like an
+unstyled bullet list. Two separate fixes are needed:
+
+**1. Framework side (already done).** `ExtentReport.start()` calls
+`spark.config().setOfflineMode(true)`, which writes Extent's own CSS and JS into
+`target/extent-report/spark/` so they come from Jenkins, not a CDN. This also
+means the report works on a CI agent with no internet.
+
+**2. Jenkins side.** Allow self-hosted scripts, fonts and video. Add this to the
+Jenkins JVM arguments so it survives a restart — in
+`~/Library/LaunchAgents/sh.brew.jenkins-lts.plist`, inside `ProgramArguments`:
+
+```xml
+<string>-Dhudson.model.DirectoryBrowserSupport.CSP=sandbox allow-scripts allow-same-origin allow-popups; default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self' data:; media-src 'self'</string>
+```
+
+then `brew services restart jenkins-lts`. To apply it immediately without a
+restart, run the same `System.setProperty(...)` from **Manage Jenkins → Script
+Console** — but that is lost on restart, which is why the plist entry matters.
+
+`media-src 'self'` is the part that lets the `.webm` video play in the browser.
+
+**This is a real trade-off:** it lets archived HTML run JavaScript in the Jenkins
+origin. Acceptable on a local single-user instance where you control what gets
+archived; on a shared controller, read
+<https://www.jenkins.io/doc/book/security/configuring-content-security-policy/>
+first.
+
+### Which URL to open
+
+| URL | What it is |
+|---|---|
+| `/job/<job>/<n>/Extent_20Report/` | **the report tab** — use this |
+| `/job/<job>/<n>/artifact/target/extent-report/index.html` | the raw archived file; works, but it is the download view |
 
 ---
 
