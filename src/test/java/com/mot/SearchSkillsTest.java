@@ -31,7 +31,9 @@ public class SearchSkillsTest extends BaseTest {
 
         TopicPage topic = results.openFirstResult();
         assertTrue(topic.currentUrl().contains("/t/"), "Not a topic URL: " + topic.currentUrl());
-        assertEquals(topic.heading(), firstTitle, "Opened a different topic than the one clicked");
+        // TEMPORARY - deliberate failure, to see the evidence in Jenkins. Reverted after.
+        assertEquals(topic.heading(), "How do I automate a flaky login page?",
+                "Opened a different topic than the one clicked");
 
         Log.pass("Opened the first result: " + topic.heading());
     }
