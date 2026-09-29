@@ -130,15 +130,32 @@ log, and the Java source line behind each step.
 
 On the Jenkins controller, one-time:
 
-1. **Manage Jenkins → Tools**
-   - JDK named `JDK21`
-   - Maven named `Maven3`
-2. **Manage Jenkins → Plugins** → install **HTML Publisher**.
+1. **Manage Jenkins → Plugins → Available** → install **HTML Publisher**, tick
+   *Restart Jenkins when installation is complete*.
+2. **Manage Jenkins → Tools**
+   - *JDK installations* → Add JDK → **uncheck "Install automatically"** →
+     Name `JDK21`, JAVA_HOME `/opt/homebrew/opt/openjdk@21/libexec/openjdk.jdk/Contents/Home`
+   - *Maven installations* → Add Maven → **uncheck "Install automatically"** →
+     Name `Maven3`, MAVEN_HOME `/opt/homebrew/Cellar/maven/3.9.9/libexec`
+   - The names must match `tools { }` in the `Jenkinsfile` exactly.
+   - These are needed because Jenkins started by launchd does **not** inherit your
+     shell `PATH`, so `mvn` is not on it.
 3. **New Item → Pipeline** → *Pipeline script from SCM* → Git →
-   `https://github.com/sanyaanand12qw/ministry_of_testing` → Script path `Jenkinsfile`.
+   `https://github.com/sanyaanand12qw/ministry_of_testing` → branch `*/main` →
+   Script path `Jenkinsfile`.
 4. Run once so the build parameters appear, then use **Build with Parameters**.
 
 Build parameters: `BROWSER`, `HEADLESS`, `SUITE_FILE`.
+
+**Triggering:** a locally bound Jenkins (`--httpListenAddress=127.0.0.1`) cannot
+receive GitHub webhooks, because GitHub has no route to it. Use **Build Now**, or
+*Configure → Build Triggers → Poll SCM* with `H/5 * * * *` to pick up pushes within
+five minutes. A webhook needs Jenkins reachable from the internet (ngrok/Cloudflare
+tunnel, or a hosted controller).
+
+**`HEADLESS=false` will not work** on this agent. Jenkins runs as a launchd service
+with no window server session, so a headed browser has no display to draw into.
+Run headed locally with `mvn clean test -Dheadless=false` instead.
 
 If the video does not play inside the report tab, Jenkins' content security policy is
 blocking it. Either download the artifact instead, or relax the CSP from

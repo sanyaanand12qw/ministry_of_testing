@@ -32,12 +32,6 @@ pipeline {
         timeout(time: 30, unit: 'MINUTES')
     }
 
-    environment {
-        // Keep the browser download inside the workspace-independent Jenkins home
-        // so it is downloaded once and reused by every build.
-        PLAYWRIGHT_BROWSERS_PATH = "${env.JENKINS_HOME}/playwright-browsers"
-    }
-
     stages {
 
         stage('Checkout') {
@@ -50,7 +44,16 @@ pipeline {
         stage('Install Browsers') {
             steps {
                 // Idempotent: a no-op once the binaries are cached.
-                sh 'mvn -B -ntp exec:java -Dexec.mainClass=com.microsoft.playwright.CLI -Dexec.args="install --with-deps ${BROWSER}"'
+                //
+                // No PLAYWRIGHT_BROWSERS_PATH override on purpose. Playwright's
+                // default cache is per-user (~/Library/Caches/ms-playwright on
+                // macOS, ~/.cache/ms-playwright on Linux), and this Jenkins runs
+                // as the same account you develop with, so the engines you already
+                // downloaded locally are reused and this stage finishes instantly.
+                //
+                // '--with-deps' is deliberately not used: it shells out to the
+                // Linux package manager and is not supported on a macOS agent.
+                sh 'mvn -B -ntp exec:java -Dexec.mainClass=com.microsoft.playwright.CLI -Dexec.args="install ${BROWSER}"'
             }
         }
 
