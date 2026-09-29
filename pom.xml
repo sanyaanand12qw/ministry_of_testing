@@ -90,7 +90,12 @@
           <suiteXmlFiles>
             <suiteXmlFile>${suiteFile}</suiteXmlFile>
           </suiteXmlFiles>
-          <!-- forwards the -D overrides into the test JVM, where ConfigReader reads them -->
+          <!--
+            Maven and the test JVM are separate processes. This block forwards the
+            -D values into the test JVM, which is where Config.java reads them
+            with System.getProperty. Without it, the Jenkins build parameters
+            would never reach the code.
+          -->
           <systemPropertyVariables>
             <browser>${browser}</browser>
             <headless>${headless}</headless>

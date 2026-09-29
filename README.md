@@ -29,66 +29,76 @@ Open the report: `target/extent-report/index.html`
 
 ## 2. What the test does
 
-`SearchSkillsTest` — one journey, asserted end to end:
+`SearchSkillsTest` — one journey, 15 lines:
 
 1. Open the Club home page.
 2. Type `skills` into the search bar and press Enter.
-3. Check at least one topic is returned and the first result's title mentions `skills`.
+3. Check at least one topic came back, and the first result's title mentions `skills`.
 4. Click the first result.
-5. Check the topic page opened, the URL is a topic URL (`/t/...`), the heading
-   matches the result that was clicked, and the topic has posts.
-
-Steps 1–5 use soft assertions at the end so one mismatch does not hide the others.
+5. Check the URL is a topic URL (`/t/...`) and the heading matches the result
+   that was clicked.
 
 ---
 
 ## 3. Project layout
 
+Nine files. Read them in this order and the whole framework makes sense.
+
 ```
-pom.xml                  dependencies + Surefire wiring
-testng.xml               the suite: parallel=methods, listener registered
-Jenkinsfile              the CI/CD pipeline
+pom.xml               dependencies, and the -D pass-through into the test JVM
+testng.xml            the suite: registers the listener, lists the test classes
+Jenkinsfile           the CI/CD pipeline
 src/test/resources/
-  config.properties      base url, browser, timeouts, capture policy
-  log4j2.xml             console + file appenders
+  log4j2.xml          console appender + target/logs/automation.log
+
 src/test/java/com/mot/
-  config/ConfigReader        -D overrides > config.properties > fallback
-  core/DriverManager         ThreadLocal Playwright / Browser / Context / Page
-  core/PlaywrightFactory     builds the browser stack; keeps or drops video + trace
-  core/BaseTest              @BeforeMethod / @AfterMethod + evidence capture
-  pages/BasePage             shared actions, each one logged
-  pages/HomePage             the search bar
-  pages/SearchResultsPage    the results list
-  pages/TopicPage            the opened topic
-  listeners/TestListener     ITestListener -> Extent nodes, status, MDC, flush
-  report/ExtentManager       ExtentReports singleton + ThreadLocal<ExtentTest>
-  utils/ArtifactUtil         artifact folder layout + relative paths
-  utils/Log                  one call -> log file + Extent report
-  tests/SearchSkillsTest     the test
+  Config.java         all settings; browser + headless overridable with -D
+  BaseTest.java       the browser lifecycle AND all evidence capture
+  TestListener.java   TestNG events -> report entries
+  ExtentReport.java   the one HTML report + the "current test" pointer
+  Log.java            one call -> log file AND report
+  SearchSkillsTest.java   the test
+  pages/
+    HomePage.java           the search bar
+    SearchResultsPage.java  the results list
+    TopicPage.java          the opened topic
 ```
 
-### Design rules
+### The four rules
 
-- **Tests hold no locators and no waits.** They read as the user journey.
-- **One `BrowserContext` per test method** → empty cookies/storage, no test bleed.
-- **Everything in `ThreadLocal`** → `parallel="methods"` is safe, because Playwright's
-  Java objects are not thread-safe.
-- **`Log.info()` writes twice** — once to `automation.log`, once to the Extent node —
-  so the report reads as a step-by-step narrative with no duplicated code.
-- **Evidence is captured in `@AfterMethod`, not in the listener.** That is the last
-  point at which the page is still open, so it works regardless of the order TestNG
-  fires its callbacks in.
+1. **Tests hold no selectors, no waits, no browser code.** `SearchSkillsTest`
+   is 15 lines of user journey.
+2. **`BaseTest` owns the browser and the evidence.** Setup and teardown in one
+   file, readable top to bottom.
+3. **`TestListener` owns the reporting.** Registered once in `testng.xml`, which
+   is why no test contains reporting code.
+4. **`Log.info()` writes twice** — log file and report — so the report reads as a
+   step-by-step story for free.
+
+### Deliberately kept simple
+
+This is a beginner-level framework on purpose. These are the shortcuts, so you
+can name them before an interviewer does:
+
+| Simplification | What it would take to do "properly" |
+|---|---|
+| Tests run one at a time | `parallel="methods"` needs the browser fields in `BaseTest` and the two fields in `ExtentReport` wrapped in `ThreadLocal`, because Playwright's Java objects are not thread-safe |
+| Settings are constants in `Config.java` | A `config.properties` file per environment (dev/stage/prod) |
+| Video and trace are always retain-on-failure | A config switch for `always` / `never` / `retain-on-failure` |
+| No `BasePage` | A shared parent only pays off once several pages need the same action |
+| Only chromium / firefox / webkit | Real Chrome and Edge need `setChannel("chrome")` / `setChannel("msedge")` |
+| A test that calls `throw new SkipException` gets its own report node | Tracking the report node per `ITestResult` instead of one static field |
 
 ---
 
 ## 4. What gets captured, and when
 
-Capture policy lives in `config.properties` (`always` | `retain-on-failure` | `never`).
-Default is `retain-on-failure`.
+Policy is fixed: **keep on failure, delete on success.** It lives in
+`BaseTest.tearDown`, which is 3 `if (failed)` checks and nothing more.
 
 | Artifact | How it is produced | Kept when |
 |---|---|---|
-| Screenshot | `page.screenshot()` full page, in `@AfterMethod` | test failed |
+| Screenshot | `page.screenshot()` full page, in `BaseTest.tearDown` | test failed |
 | Video (`.webm`) | context option `setRecordVideoDir`, flushed on `context.close()` | test failed |
 | Trace (`.zip`) | `context.tracing().start(screenshots, snapshots, sources)` | test failed |
 | Log file | Log4j2 file appender | always |
@@ -173,23 +183,22 @@ System.setProperty("hudson.model.DirectoryBrowserSupport.CSP", "sandbox allow-sc
 
 1. `mvn clean test`.
 2. Surefire starts a JVM and hands `testng.xml` to TestNG.
-3. TestNG reads the suite, registers `TestListener`, calls `onStart` → `ExtentReports`
-   is created and `target/extent-report/index.html` is reserved.
-4. `@BeforeMethod` → `PlaywrightFactory.createPage()`:
-   driver starts → browser launches → fresh context → **tracing starts** →
-   **video recording starts** → page opens.
-5. `onTestStart` → an Extent node is created for the test and the test name goes into
-   the logging MDC, so every log line is attributable.
-6. The test drives page objects. Each action logs once and appears in the report once.
-7. Test method ends → TestNG sets the result → `onTestSuccess` / `onTestFailure` marks
-   the Extent node (a failure attaches the full stack trace).
-8. `@AfterMethod` reads `ITestResult`:
-   - failed → screenshot now, while the page is alive
+3. TestNG reads the suite, registers `TestListener`, calls `onStart` →
+   `ExtentReport.start()` creates the report.
+4. `BaseTest.setUp` (`@BeforeMethod`) → Playwright starts → browser launches →
+   fresh context with **video recording ON** → **tracing ON** → page opens.
+5. `onTestStart` → a section for this test is created in the report, and
+   `ExtentReport.currentTest` starts pointing at it.
+6. The test drives page objects. Each `Log.info` writes to the log file and the
+   report at the same time.
+7. Test method ends → TestNG sets the result → `onTestSuccess` / `onTestFailure`
+   marks the report section (a failure attaches the full stack trace).
+8. `BaseTest.tearDown` (`@AfterMethod`) reads `ITestResult`:
+   - failed → screenshot now, while the page is still alive
    - tracing stops **with** a path on failure, **without** one on success (discarded)
-   - context closes → the `.webm` lands on disk → kept on failure, deleted on success
-   - the scratch recording folder is removed
-   - browser and driver close, ThreadLocals are cleared
-9. `onFinish` → `extent.flush()` writes the HTML.
+   - context closes → the `.webm` appears → kept on failure, deleted on success
+   - browser and Playwright close
+9. `onFinish` → `ExtentReport.flush()` writes `index.html`.
 10. Surefire fails the build if any test failed.
 
 ### CI run
@@ -199,8 +208,9 @@ System.setProperty("hudson.model.DirectoryBrowserSupport.CSP", "sandbox allow-sc
 3. **Checkout** — the repo is cloned into the agent workspace.
 4. **Install Browsers** — `mvn exec:java` downloads the engine into
    `$JENKINS_HOME/playwright-browsers`; a no-op on later builds.
-5. **Test** — `mvn clean test -Dbrowser=… -Dheadless=…`. The `-D` flags come from the
-   build parameters and win over `config.properties`.
+5. **Test** — `mvn clean test -Dbrowser=… -Dheadless=…`. The `-D` flags come from
+   the build parameters, get forwarded by Surefire's `systemPropertyVariables`,
+   and are read by `Config.java`.
 6. **Publish Report** — the whole `target/extent-report` folder is published as the
    *Extent Report* tab.
 7. **post always** — `surefire-reports/*.xml` feeds the Jenkins test trend graph, and
@@ -210,16 +220,16 @@ System.setProperty("hudson.model.DirectoryBrowserSupport.CSP", "sandbox allow-sc
 
 1. Playwright throws — a failed assertion, or a timeout because a locator never
    appeared.
-2. `onTestFailure` → the Extent node turns red and the stack trace is attached.
-3. `@AfterMethod` → screenshot, trace zip and video are written and linked into the
-   report.
+2. `onTestFailure` → the report section turns red and the stack trace is attached.
+3. `BaseTest.tearDown` → screenshot, trace zip and video are written and linked
+   into the report.
 4. In the pipeline, `catchError` marks the build **FAILURE** but does **not** abort it,
    so the *Publish Report* stage and `post { always }` still run. **A failure never
    loses its evidence.**
 5. Jenkins shows the build red; the test trend graph records the regression.
 6. You debug in this order:
    - **Extent Report tab** → which step failed, the screenshot, the stack trace
-   - **`automation.log`** → the full step sequence, with the test name on every line
+   - **`automation.log`** → the full step sequence in order
    - **video** → what the user would have seen
    - **trace** → `npx playwright show-trace <zip>` for DOM, network and console at the
      exact failing action

@@ -10,14 +10,14 @@
 
 pipeline {
 
-    agent any
+    agent any //run this pipeline on any available jenkins node/agent
 
-    tools {
+    tools {  //"For this pipeline, use the JDK and Maven installations configured in Jenkins.
         jdk 'JDK21'
         maven 'Maven3'
     }
 
-    parameters {
+    parameters { //This creates parameters that you can select when starting the Jenkins build.
         choice(name: 'BROWSER', choices: ['chromium', 'firefox', 'webkit'],
                 description: 'Browser engine to run against')
         booleanParam(name: 'HEADLESS', defaultValue: true,
@@ -26,9 +26,11 @@ pipeline {
                 description: 'TestNG suite file to execute')
     }
 
-    options {
+    options { //Adds timestamps to Jenkins console logs.
         timestamps()
+        //This prevents Jenkins from filling your disk.
         buildDiscarder(logRotator(numToKeepStr: '20', artifactNumToKeepStr: '10'))
+        //If the entire pipeline takes more than 30 minutes:This protects you from a test suite hanging forever.
         timeout(time: 30, unit: 'MINUTES')
     }
 
@@ -36,11 +38,14 @@ pipeline {
 
         stage('Checkout') {
             steps {
+            //Checkout the source code configured for this Jenkins job.
                 checkout scm
+                //prints the latest Git commit.
                 sh 'git --no-pager log -1 --oneline'
             }
         }
 
+//This installs the Playwright browser required by your parameter.
         stage('Install Browsers') {
             steps {
                 // Idempotent: a no-op once the binaries are cached.
@@ -58,14 +63,18 @@ pipeline {
                 // the shell, and on the very first parameterised build Jenkins has not
                 // injected the parameters as env vars yet -- the arg would silently
                 // become a bare "install", which downloads every engine.
+              //  Get the value of the Jenkins parameter called BROWSER.
                 sh "mvn -B -ntp exec:java -Dexec.mainClass=com.microsoft.playwright.CLI -Dexec.args='install ${params.BROWSER}'"
             }
         }
 
+//This is where your actual QA framework runs.
         stage('Test') {
             steps {
                 // catchError marks the build FAILED but lets the pipeline carry on
                 // to reporting, so the evidence for the failure is still published.
+
+                //That's why catchError is used. So you don't lose your debugging evidence.
                 catchError(buildResult: 'FAILURE', stageResult: 'FAILURE') {
                     sh """
                         mvn -B -ntp clean test \
@@ -77,6 +86,7 @@ pipeline {
             }
         }
 
+//and gives you a report tab in Jenkins.
         stage('Publish Report') {
             steps {
                 // The whole extent-report folder is published, not just index.html,

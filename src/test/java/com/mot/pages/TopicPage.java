@@ -2,23 +2,24 @@ package com.mot.pages;
 
 import com.microsoft.playwright.Locator;
 import com.microsoft.playwright.Page;
-import com.mot.utils.Log;
+import com.mot.Log;
 
 /**
- * A Discourse topic (thread) page — where the first search result lands.
+ * A topic (discussion thread) page — where the first search result lands.
  */
-public class TopicPage extends BasePage {
+public class TopicPage {
 
-    private final Locator heading = page.locator("#topic-title .fancy-title");
-    private final Locator posts = page.locator(".topic-post");
+    private final Page page;
+    private final Locator heading;
 
     public TopicPage(Page page) {
-        super(page);
+        this.page = page;
+        this.heading = page.locator("#topic-title .fancy-title");
     }
 
     TopicPage waitUntilLoaded() {
         heading.waitFor();
-        Log.info("Topic page opened: " + currentUrl());
+        Log.info("Topic page opened: " + page.url());
         return this;
     }
 
@@ -26,7 +27,7 @@ public class TopicPage extends BasePage {
         return heading.innerText().trim();
     }
 
-    public int postCount() {
-        return posts.count();
+    public String currentUrl() {
+        return page.url();
     }
 }

@@ -2,24 +2,26 @@
 <!DOCTYPE suite SYSTEM "https://testng.org/testng-1.0.dtd">
 
 <!--
-  The suite definition Surefire runs (see <suiteXmlFile> in pom.xml).
+  The suite Maven runs (wired up by <suiteXmlFile> in pom.xml).
 
-  parallel="methods" + thread-count: each test method runs on its own thread.
-  This is safe here because DriverManager keeps the Playwright objects in
-  ThreadLocals and every method gets a fresh BrowserContext.
+  Two jobs:
+    1. register the listener ONCE, which is what keeps reporting code out of
+       the tests
+    2. list the test classes to run
 
-  The listener is registered once, here, which is what keeps reporting out of
-  the test code.
+  Tests run one at a time. Adding parallel="methods" thread-count="2" here would
+  run them at the same time, but then the browser fields in BaseTest and the
+  report fields in ExtentReport would all need to be ThreadLocal.
 -->
-<suite name="MinistryOfTesting Regression Suite" verbose="1" parallel="methods" thread-count="2">
+<suite name="MinistryOfTesting Suite" verbose="1">
 
   <listeners>
-    <listener class-name="com.mot.listeners.TestListener"/>
+    <listener class-name="com.mot.TestListener"/>
   </listeners>
 
   <test name="Club Search">
     <classes>
-      <class name="com.mot.tests.SearchSkillsTest"/>
+      <class name="com.mot.SearchSkillsTest"/>
     </classes>
   </test>
 

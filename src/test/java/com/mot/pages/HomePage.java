@@ -2,49 +2,41 @@ package com.mot.pages;
 
 import com.microsoft.playwright.Locator;
 import com.microsoft.playwright.Page;
-import com.mot.config.ConfigReader;
-import com.mot.utils.Log;
+import com.mot.Config;
+import com.mot.Log;
 
 /**
- * The Club home page (a Discourse forum) and its search bar.
+ * The Club home page and its search bar.
+ *
+ * <p>A page object holds the locators and exposes plain actions. The test then
+ * reads as the user journey with no CSS selectors in it.
  */
-public class HomePage extends BasePage {
+public class HomePage {
 
-    /*
-     * Locator strategy, verified against the live DOM:
-     *  - the search bar on the home page is the welcome-banner input
-     *    (id="welcome-banner-search-input", role=searchbox, placeholder="Search")
-     *  - .or(...) adds a semantic fallback, so a theme change that renames the id
-     *    degrades to the accessible placeholder instead of failing the suite.
-     */
-    private final Locator searchBox = page.locator("#welcome-banner-search-input")
-            .or(page.getByPlaceholder("Search"))
-            .first();
+    private final Page page;
+    private final Locator searchBox;
 
     public HomePage(Page page) {
-        super(page);
+        this.page = page;
+        // Verified against the live site: the home page search bar is the input
+        // in the welcome banner.
+        this.searchBox = page.locator("#welcome-banner-search-input");
     }
 
     public HomePage open() {
-        navigateTo(ConfigReader.baseUrl());
-        page.waitForLoadState();
-        Log.info("Home page loaded with title: " + title());
+        Log.info("Opening " + Config.BASE_URL);
+        page.navigate(Config.BASE_URL);
         return this;
     }
 
-    public boolean isSearchBarVisible() {
-        return searchBox.isVisible();
-    }
-
     /**
-     * Types the query into the search bar and submits it. Discourse renders the
-     * matches into its search menu rather than navigating, so the returned page
-     * object reads the results from there.
+     * Types the query and submits it. The site shows the matches in a dropdown
+     * instead of loading a new page, so the results are read from there.
      */
     public SearchResultsPage searchFor(String query) {
-        click(searchBox, "the search bar");
-        type(searchBox, query, "the search bar");
-        Log.info("Submitting the search with Enter");
+        Log.info("Typing '" + query + "' into the search bar");
+        searchBox.click();
+        searchBox.fill(query);
         searchBox.press("Enter");
         return new SearchResultsPage(page).waitForResults();
     }
