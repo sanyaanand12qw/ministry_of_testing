@@ -104,6 +104,7 @@ pipeline {
         }
     }
 
+//Run this after the pipeline, regardless of whether tests passed or failed.
     post {
         always {
             // Feeds Jenkins' own test trend graph and per-test history.

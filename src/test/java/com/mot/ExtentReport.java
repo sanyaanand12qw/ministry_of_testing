@@ -30,6 +30,16 @@ public final class ExtentReport {
     /** Called once, at the start of the suite. */
     public static void start() {
         ExtentSparkReporter spark = new ExtentSparkReporter(DIR.resolve("index.html").toString());
+
+        // Offline mode writes Extent's own CSS and JavaScript into the report
+        // folder instead of linking them from a CDN. Two reasons:
+        //   1. Jenkins serves archived HTML with a strict Content-Security-Policy
+        //      that blocks anything not served from Jenkins itself, so a
+        //      CDN-linked report renders as unstyled plain text.
+        //   2. A CI agent with no internet access can still produce a report
+        //      that looks right.
+        spark.config().setOfflineMode(true);
+
         spark.config().setTheme(Theme.DARK);
         spark.config().setDocumentTitle("Ministry of Testing - Automation Report");
         spark.config().setReportName("Playwright + TestNG");
